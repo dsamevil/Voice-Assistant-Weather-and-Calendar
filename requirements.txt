@@ -1,0 +1,13 @@
+requests
+time
+datetime
+re
+api_client
+speech_module
+sounddevice
+scipy
+pyttsx3
+faster-whisper
+numpy
+os
+sys
