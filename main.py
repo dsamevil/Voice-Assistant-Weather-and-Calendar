@@ -112,8 +112,28 @@ def parse_appointment_details(text):
                     month_num, day_num, year = today.month, today.day, today.year
                 break
 
-    start_time = f"{year}-{month_num:02d}-{day_num:02d}T10:00"
-    end_time = f"{year}-{month_num:02d}-{day_num:02d}T11:00"
+    # --- TIME LOGIC ---
+    # --- UPDATED TIME LOGIC WITH AM/PM SUPPORT ---
+    hour_num = 10  # Default
+    time_matches = re.findall(r'at\s+(\d{1,2})', text)
+    
+    if time_matches:
+        hour_num = int(time_matches[-1])
+        
+        # Check for AM/PM indicators in the text
+        if "pm" in text or "p.m." in text:
+            if hour_num < 12:
+                hour_num += 12
+        elif "am" in text or "a.m." in text:
+            if hour_num == 12:
+                hour_num = 0  # Midnight case
+                
+        # Basic validation for 24-hour range
+        if hour_num > 23: 
+            hour_num = 10
+
+    start_time = f"{year}-{month_num:02d}-{day_num:02d}T{hour_num:02d}:00"
+    end_time = f"{year}-{month_num:02d}-{day_num:02d}T{hour_num+1:02d}:00"
 
     # 2. Extract Title and Location
     location = "Not specified"
@@ -431,12 +451,14 @@ def handle_command(text):
             new_location = None
             new_title = None
             new_date = None
-            
+            new_time = None
+
             # Check what needs to be changed
             change_location = "place" in text or "location" in text or "move" in text
             change_title = "title" in text or "name" in text or "rename" in text
-            change_date = "date" in text or "time" in text or "day" in text
-            
+            change_date = "date" in text or "day" in text # Split date and time triggers
+            change_time = "time" in text # ADDED: Specific trigger for time
+
             # Check if new value is provided in command
             if " to " in text:
                 after_to = text.split(" to ", 1)[1].strip(" .?!")
@@ -448,6 +470,10 @@ def handle_command(text):
                 elif change_date:
                     # Parse date from after_to
                     new_date = after_to
+                elif change_time: # ADDED: Capture time if provided
+                    new_time = after_to
+
+                
             
             # If no new value provided, ask for it
             if change_location and not new_location:
@@ -476,6 +502,15 @@ def handle_command(text):
                     date_text = transcribe_audio(date_file)
                     if date_text:
                         new_date = date_text.strip(" .?!")
+
+            if change_time and not new_time: # ADDED: Audio prompt for time
+                speak_text("What is the new time?")
+                print(">>> Waiting for new time...")
+                time_file = record_audio(silence_duration=2.0)
+                if time_file:
+                    time_text = transcribe_audio(time_file)
+                    if time_text: 
+                        new_time = time_text.strip(" .?!")
             
             # Find target appointment
             events = get_appointments()
@@ -557,15 +592,30 @@ def handle_command(text):
                             speak_text("Updated.")
                         else:
                             speak_text("Could not update.")
+                    elif new_time:
+                        # Use the existing date but update to the new time
+                        _, start_time, end_time, _ = parse_appointment_details(f"appointment at {new_time}")
+                        # Keep the original date from the server, but swap the time part
+                        speak_text(f"Changing time of {target_title_search} to {new_time}.")
+                        success = modify_appointment(target_title_search, new_date=start_time, new_end_date=end_time)
+                        if success:
+                            speak_text("Updated.")
+                        else:
+                            speak_text("Could not update.")
             else:
                 speak_text("I need to know what to change, or the appointment was not found.")
 
 
         elif "add" in text or "create" in text or "new" in text:
             title, start, end, loc = parse_appointment_details(text)
+            
+            # Extract date and time from start
+            date_part = start.split('T')[0]
+            time_part = start.split('T')[1] if 'T' in start else "10:00"
+            
             msg = f"Adding appointment called {title}"
             if loc != "Not specified": msg += f" at {loc}"
-            msg += f" on {start.split('T')[0]}."
+            msg += f" on {date_part} at {time_part}."
             speak_text(msg)
             create_appointment(title, "Voice Entry", start, end, loc)
             time.sleep(1.0)  # Wait for API to sync
@@ -616,7 +666,7 @@ def handle_command(text):
                         title = events[0].get('title', 'Untitled')
                         speak_text(f"You have 1 appointment: {title}.")
                     else:
-                        titles = [f"{i+1}. {e.get('title', 'Untitled')}" for i, e in enumerate(events)]
+                        titles = [f"{i}. {e.get('title', 'Untitled')}" for i, e in enumerate(events, 1)]
                         titles_spoken = ", ".join(titles)
                         speak_text(f"You have {count} appointments: {titles_spoken}.")
         return True
@@ -702,6 +752,7 @@ def handle_command(text):
 
 if __name__ == "__main__":
     try:
+        # UNCOMMENT THE LINE BELOW TO DELETE ALL OLD APPOINTMENTS (run once, then comment it again)
         # delete_all_appointments()
         pass
     except Exception:
