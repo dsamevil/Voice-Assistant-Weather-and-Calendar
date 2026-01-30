@@ -35,6 +35,6 @@ docker run voice-assistant
 ### Scenario B: Multiple Files (Mount a Folder) This maps a folder on your computer to /app/user_input. The script sees it's a folder and runs all files inside one by one. Rename C:\Users\ASUS\Desktop\my_audios to your location
 docker run -v "C:\Users\ASUS\Desktop\my_audios:/app/user_input" voice-assistant
 
-### Scenario C: Single File (Mount a File) This maps a single file on your computer to /app/user_input. The script sees it's a file and runs it immediately. Rename C:\Users\ASUS\Desktop\my_audios to your location
+### Scenario C: Single File (Mount a File) This maps a single file on your computer to /app/user_input. The script sees it's a file and runs it immediately. Rename C:\Users\ASUS\Desktop\my_audios\command.wav to your location
 docker run -v "C:\Users\ASUS\Desktop\my_audios\command.wav:/app/user_input" voice-assistant
 
