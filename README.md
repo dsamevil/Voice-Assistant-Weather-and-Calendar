@@ -17,7 +17,8 @@ or
 
 python main.py
 
-
+#Note !!!
+change the API Key (TEAM_ID) in api_client.py while you use
 
 
 # Final_voice_assistant 
